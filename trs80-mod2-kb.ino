@@ -1,3 +1,13 @@
+/*
+  File:     trs80-mod2-kb.ino
+  Date:     2024.11.01
+  Author:   Alain Boudreault - aka: ve2cuy, puyansude
+  -------------------------------------------------------
+  Description:
+  
+
+*/
+
 #include <U8g2lib.h>
 
 #ifdef U8X8_HAVE_HW_SPI
