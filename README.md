@@ -1,4 +1,4 @@
-TRS80-Model II keyboard emulator from arduino
+TRS80-Model II keyboard emulator with arduino
 
 * TRS80-Moel II Keyboard Timing Diagram:
 
