@@ -9,18 +9,20 @@
 
 */
 
+//#define USE_DISPLAY
+#ifdef USE_DISPLAY
 #include <U8g2lib.h>
-
-#ifdef U8X8_HAVE_HW_SPI
-#include <SPI.h>
-#endif
-#ifdef U8X8_HAVE_HW_I2C
-#include <Wire.h>
+  #ifdef U8X8_HAVE_HW_SPI
+    #include <SPI.h>
+  #endif
+  #ifdef U8X8_HAVE_HW_I2C
+    #include <Wire.h>
+  #endif
 #endif
 
 #include <PS2KeyAdvanced.h>
 
-//#define TRACE
+#define TRACE
 #define USE_BUSY_PIN
 #define PS2_DATA_PIN              8 
 #define PS2_IRQ_PIN               3     // On UNO, use pin 2 or 3
@@ -29,10 +31,15 @@
 #define TRS80_KB_CLOCK_PIN        12
 #define TRS80_KB_END_PULSE_DELAY  165   // 165us produce a timing graph very close to a model II real keyboard
 
+
+#define TRS80_KB_KEY_HOLD         0
+
 PS2KeyAdvanced keyboard;
 
 // screen
+#ifdef USE_DISPLAY
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SDA, /* reset=*/ U8X8_PIN_NONE);  // High speed I2C
+#endif
 
 int compteur = 0;                 // Used with TRACE
 char str[32];                     // Used with sprintf()
@@ -41,25 +48,32 @@ uint16_t c;                       // scan code from PS2 KB
 // ------------------------------------------------------------------
 void setup() {
 // ------------------------------------------------------------------
+#ifdef USE_DISPLAY  
   u8g2.begin();
+  u8g2.clearBuffer();                       // clear the display
+  u8g2.setFont(u8g2_font_ncenB08_tr);       // choose a font
+  u8g2.drawStr(0,10,"TRS-80M2-Keyboard");   // write something to the internal memory
+  u8g2.sendBuffer();                        // transfer internal memory to the display
+#endif  
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+
   pinMode(TRS80_KB_BUSY_PIN, INPUT);
   pinMode(TRS80_KB_CLOCK_PIN, OUTPUT);
   pinMode(TRS80_KB_DATA_PIN, OUTPUT);
   digitalWrite(TRS80_KB_DATA_PIN, HIGH);
 
-  u8g2.clearBuffer();                       // clear the display
-  u8g2.setFont(u8g2_font_ncenB08_tr);       // choose a font
-  u8g2.drawStr(0,10,"TRS-80M2-Keyboard");   // write something to the internal memory
-  u8g2.sendBuffer();                        // transfer internal memory to the display
   keyboard.begin(PS2_DATA_PIN, PS2_IRQ_PIN);
   Serial.begin(115200);
 
  #ifdef TRACE
-  Serial.println("\nTRS-80 Model II emulator");
+  Serial.println("\nTRS-80 Model II Keyboard emulator");
 #endif
 
   delay(1000);
-  u8g2.clearBuffer();  
+#ifdef USE_DISPLAY
+  u8g2.clearBuffer();
+#endif    
 } // setup() 
 
 // ------------------------------------------------------------------
@@ -83,12 +97,13 @@ void loop() {
 #ifdef TRACE
       Serial.println(str);
 #endif
+#ifdef USE_DISPLAY
       u8g2.drawStr(0,40, str);    // write something to the internal memory
       u8g2.sendBuffer();          // transfer internal memory to the display
-
+#endif
       key = translatePS2KeyToTRS80(key, statusBit);
 
-      if ( key /*statusBit == 0 || statusBit == 1 */ /* FOR DEBUG || statusBit == 0xFF */) {
+      if ( key != 255 /*statusBit == 0 || statusBit == 1 */ /* FOR DEBUG || statusBit == 0xFF */) {
       sprintf(str, "Key sent to TRS* = %02X : %c\n", key, key );
 #ifdef TRACE
         Serial.print(str);
@@ -96,9 +111,11 @@ void loop() {
         // Wait if CPU is busy before sending key sequence
 #ifdef USE_BUSY_PIN        
         while(!digitalRead(TRS80_KB_BUSY_PIN));
-#endif        
+#endif
+#ifdef USE_DISPLAY        
         u8g2.drawStr(0,55, str);
         u8g2.sendBuffer();
+#endif
         keyToTRS(key);
       }  //   if statusBit
   
@@ -113,21 +130,39 @@ void loop() {
 char translatePS2KeyToTRS80(char key, byte statusBit){
 // ------------------------------------------------------------------
     static char shiftNumbers[] = {')','!','"','/','$','%','?','&','*','('};
+
+    // IF Scroll Lock was released
+    if (statusBit == 0x81 && key == 0x02 ) {
+#ifdef TRACE
+      Serial.println("Scroll Lock was released");
+      statusBit = 1;
+#endif 
+
+    } 
+
     if (statusBit == 0 || statusBit == 1 || statusBit == 0xC0 /* FOR DEBUG || statusBit == 0xFF */) {
       key = key == 0x06 && statusBit == 0 ? 0x03 : key ;  // Break
-
       if (statusBit == 1) {
-        key = key == 0x1E ? 0x0D : key; // Enter
-        key = key == 0x1C ? 0x08 : key; // Back Space
-        key = key == 0x1F ? 0x20 : key; // Space
+        key = key == 0x02 ? TRS80_KB_KEY_HOLD : key;  // Hold
+        key = key == 0x1E ? 0x0D              : key; // Enter
+        key = key == 0x1C ? 0x08              : key; // Back Space
+        key = key == 0x1F ? 0x20              : key; // Space
 
-        key = key == 0x17 ? 0x1E : key; // Arrow UP
-        key = key == 0x18 ? 0x1F : key; // Arrow DOWN
-        key = key == 0x15 ? 0x1C : key; // Arrow LEFT
-        key = key == 0x16 ? 0x1D : key; // Arrow RIGHT
-        key = key == 0x61 ? 0x01 : key; // F1
-        key = key == 0x62 ? 0x02 : key; // F2
+        key = key == 0x17 ? 0x1E              : key; // Arrow UP
+        key = key == 0x18 ? 0x1F              : key; // Arrow DOWN
+        key = key == 0x15 ? 0x1C              : key; // Arrow LEFT
+        key = key == 0x16 ? 0x1D              : key; // Arrow RIGHT
+        key = key == 0x61 ? 0x01              : key; // F1
+        key = key == 0x62 ? 0x02              : key; // F2
       } //  if statusBit == 1
+
+      // Remove 2 key from buffer if Scroll Lock was use
+      if (key == TRS80_KB_KEY_HOLD ) {
+        delay(50);          // Give time for the keyboard to by ready to send the next code
+        keyboard.read();    // !keyboard.available() could freeze the app
+        delay(50);          // Give time for the keyboard to by ready to send the next code
+        keyboard.read();
+      }
 
       if ( statusBit == 0xC0 && (key >= '0' && key <='9') ) {
 #ifdef TRACE
@@ -139,7 +174,7 @@ char translatePS2KeyToTRS80(char key, byte statusBit){
       return key;
     } else
     {
-      return 0;
+      return 255;
 
     }
 } // translatePS2KeyToTRS80
@@ -158,7 +193,6 @@ void keyToTRS(char key)
       shiftOutV2(TRS80_KB_DATA_PIN, TRS80_KB_CLOCK_PIN, LSBFIRST, key, TRS80_KB_END_PULSE_DELAY);
       
       // END Pulse
-      // delayMicroseconds(END_PULSE_DELAY/2);
       digitalWrite(TRS80_KB_DATA_PIN, LOW);
       delayMicroseconds(TRS80_KB_END_PULSE_DELAY/6);
       digitalWrite(TRS80_KB_DATA_PIN, HIGH);
