@@ -1,5 +1,7 @@
 TRS80-Model II keyboard emulator from arduino
 
+![screenshot](trs80m2-keyboard.png)
+
 Keyboard Timing Diagram - Capture from a TRS-80 Model II keyboard:
 
 ![screenshot](IMG_2088.JPEG)
