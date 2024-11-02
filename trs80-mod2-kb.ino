@@ -41,8 +41,6 @@ char str[32];
 int x = 0;
 uint16_t c;
 
-static byte TRS80M2Keyboard[] = {1,2,3,4,5,6,7,8} ; 
-
 void setup() {
   u8g2.begin();
   pinMode(busyPin, INPUT);
